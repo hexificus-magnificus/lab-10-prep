@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGL.hpp>
@@ -33,8 +34,11 @@ int main() {
     fullscreenTriangle[2].texCoords = {0, 2};
     // load vertex and fragment shaders:
     sf::Shader shader(std::filesystem::path{"main.vert"}, std::filesystem::path{"main.frag"});
+    sf::Shader blur(std::filesystem::path{"main.vert"}, std::filesystem::path{"blur.frag"});
     // TODO: eventually add another Shader here which uses the blur fragment shader,
     // also create a sf::RenderTexture...
+    sf::RenderTexture intTex({1280, 720}, settings);
+    auto start = std::chrono::steady_clock::now();
     while (window.isOpen()) {
         while (auto e = window.pollEvent()) {
             if (e->is<sf::Event::Closed>()) {
@@ -43,8 +47,20 @@ int main() {
         }
         // TODO: set shader uniforms and eventually draw into
         // a RenderTexture first before postprocessing into the window target.
+        auto now = std::chrono::steady_clock::now();
+        shader.setUniform("windowSize", sf::Glsl::Vec2(1280, 720));
+        sf::Glsl::Vec2 mousePos = sf::Glsl::Vec2(sf::Mouse::getPosition(window));
+        shader.setUniform("mousePos", mousePos);
+        int elapsed = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+        float seconds = (float)elapsed / 1000000;
+        shader.setUniform("elapsed", seconds);
+        intTex.clear(sf::Color::Black);
+        intTex.draw(fullscreenTriangle, &shader);
+
+        blur.setUniform("windowSize", sf::Glsl::Vec2(1280, 720));
+        blur.setUniform("tex", intTex.getTexture());
         window.clear(sf::Color::Black);
-        window.draw(fullscreenTriangle, &shader);
+        window.draw(fullscreenTriangle, &blur);
         window.display();
     }
     return 0;
